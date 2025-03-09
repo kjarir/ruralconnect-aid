@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Mic, Send, StopCircle, Volume2, RefreshCw, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
-import { processUserQuery } from '@/utils/aiUtils';
+import { processUserQuery, translateResponse } from '@/utils/aiUtils';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -61,6 +61,10 @@ const AIAssistant: React.FC = () => {
       if (recognitionRef.current) {
         recognitionRef.current.stop();
         setIsListening(false);
+      }
+      // Also stop any ongoing speech
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
       }
     };
   }, []);
@@ -155,9 +159,15 @@ const AIAssistant: React.FC = () => {
       
       recognition.start();
       setIsListening(true);
+      
+      // Update toast message based on selected language
+      let listeningMsg = "I'm listening. Speak clearly...";
+      if (language === 'hi-IN') listeningMsg = "मैं सुन रहा हूँ। स्पष्ट रूप से बोलें...";
+      else if (language === 'bn-IN') listeningMsg = "আমি শুনছি। স্পষ্টভাবে কথা বলুন...";
+      
       toast({
         title: "Voice Input Active",
-        description: "I'm listening. Speak clearly...",
+        description: listeningMsg,
       });
     } catch (e) {
       console.error("Error starting speech recognition", e);
@@ -189,6 +199,25 @@ const AIAssistant: React.FC = () => {
         startListening();
       }, 100);
     }
+    
+    // If there was a recent response, translate it to the new language
+    if (messages.length > 0 && messages[messages.length - 1].role === 'assistant') {
+      const lastMessage = messages[messages.length - 1].content;
+      translateResponse(lastMessage, value)
+        .then(translatedText => {
+          if (translatedText !== lastMessage) {
+            const updatedMessages = [...messages];
+            updatedMessages[updatedMessages.length - 1] = {
+              ...updatedMessages[updatedMessages.length - 1],
+              content: translatedText
+            };
+            setMessages(updatedMessages);
+          }
+        })
+        .catch(error => {
+          console.error('Translation error:', error);
+        });
+    }
   };
 
   const speakText = (text: string) => {
@@ -209,14 +238,22 @@ const AIAssistant: React.FC = () => {
     
     // Get voices and try to find one matching our language
     const voices = window.speechSynthesis.getVoices();
-    const voice = voices.find(v => v.lang.startsWith(language.split('-')[0]));
+    const languagePrefix = language.split('-')[0];
+    const voice = voices.find(v => v.lang.startsWith(languagePrefix));
+    
     if (voice) {
       utterance.voice = voice;
+      console.log(`Using voice: ${voice.name} (${voice.lang})`);
+    } else {
+      console.log(`No voice found for ${language}, using default voice`);
     }
     
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
+    utterance.onerror = (e) => {
+      console.error('Speech synthesis error:', e);
+      setIsSpeaking(false);
+    };
     
     window.speechSynthesis.speak(utterance);
   };
@@ -231,7 +268,7 @@ const AIAssistant: React.FC = () => {
     
     try {
       // Process the user's query and get an appropriate response
-      const responseContent = await processUserQuery(input.trim(), aiKey);
+      const responseContent = await processUserQuery(input.trim(), aiKey, language);
       
       // Add a small delay for better UX
       setTimeout(() => {
@@ -243,7 +280,7 @@ const AIAssistant: React.FC = () => {
         setMessages(prev => [...prev, aiResponse]);
         setLoading(false);
         
-        // Speak the response
+        // Speak the response in the selected language
         speakText(aiResponse.content);
       }, 600);
       
