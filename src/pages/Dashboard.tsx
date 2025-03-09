@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,7 +8,12 @@ import { Progress } from '@/components/ui/progress';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
-import { MapPin, Cloud, CloudRain, CloudSun, Sun, Droplets, Wind, Thermometer, AlertTriangle, ChevronsUp, Tractor, Leaf, ShoppingBag, Phone, VideoIcon, FileText, HelpCircle, User, PiggyBank, HeartPulse, Calendar as CalendarIcon } from 'lucide-react';
+import { 
+  MapPin, Cloud, CloudRain, CloudSun, Sun, Droplets, Wind, 
+  Thermometer, AlertTriangle, ChevronsUp, Tractor, Leaf, 
+  ShoppingBag, Phone, VideoIcon, FileText, HelpCircle, 
+  User, PiggyBank, HeartPulse, Calendar as CalendarIcon 
+} from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import CalendarEvent from '@/components/CalendarEvent';
 import AIAssistant from '@/components/AIAssistant';
@@ -141,14 +147,15 @@ const Dashboard = () => {
       <div className="container mx-auto px-4 pt-24 pb-12">
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3 lg:grid-cols-4">
           
-          {/* Sidebar */}
+          {/* Sidebar with User Profile and AI Assistant */}
           <motion.div 
             className="md:col-span-1"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <Card className="border-none shadow-md bg-gradient-to-br from-primary/10 to-background">
+            {/* User Profile Card */}
+            <Card className="border shadow-md bg-gradient-to-br from-primary/5 to-background mb-6">
               <CardHeader className="pb-4">
                 <div className="flex items-center gap-4">
                   <motion.div 
@@ -203,7 +210,7 @@ const Dashboard = () => {
             </Card>
             
             {/* AI Assistant */}
-            <div className="mt-6">
+            <div>
               <AIAssistant />
             </div>
           </motion.div>
@@ -218,7 +225,7 @@ const Dashboard = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
               >
-                <Card className="overflow-hidden border-none shadow-lg">
+                <Card className="overflow-hidden border shadow-lg">
                   <div className="bg-gradient-to-r from-blue-500 to-blue-700 text-white">
                     <CardHeader>
                       <div className="flex items-center justify-between">
@@ -319,7 +326,7 @@ const Dashboard = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.2 }}
               >
-                <Card className="border-none shadow-md">
+                <Card className="border shadow-md">
                   <CardContent className="pt-6">
                     <CalendarEvent selectedDate={date} onDateChange={setDate} />
                   </CardContent>
