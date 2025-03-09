@@ -23,11 +23,16 @@ const App = () => {
     };
     
     checkLoginStatus();
+    
     // Listen for login/logout events
-    window.addEventListener('storage', checkLoginStatus);
+    const handleStorageChange = () => {
+      checkLoginStatus();
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
     
     return () => {
-      window.removeEventListener('storage', checkLoginStatus);
+      window.removeEventListener('storage', handleStorageChange);
     };
   }, []);
 

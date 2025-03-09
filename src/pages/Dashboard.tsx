@@ -11,6 +11,10 @@ import { motion } from 'framer-motion';
 import { MapPin, Cloud, CloudRain, CloudSun, Sun, Droplets, Wind, Thermometer, AlertTriangle, ChevronsUp, Tractor, Leaf, ShoppingBag, Phone, VideoIcon, FileText, HelpCircle, User, PiggyBank, HeartPulse, Calendar as CalendarIcon } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import CalendarEvent from '@/components/CalendarEvent';
+import AIAssistant from '@/components/AIAssistant';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
 
 interface UserData {
   name: string;
@@ -35,6 +39,10 @@ const Dashboard = () => {
   const [cropHealth, setCropHealth] = useState(78);
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [loading, setLoading] = useState(true);
+  const [selectedDoctor, setSelectedDoctor] = useState("");
+  const [symptomDesc, setSymptomDesc] = useState("");
+  const [showBookingConfirmation, setShowBookingConfirmation] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     // Check if user is logged in
@@ -67,6 +75,37 @@ const Dashboard = () => {
     // Simulate loading state for animation purposes
     setTimeout(() => setLoading(false), 800);
   }, [navigate]);
+
+  const doctors = [
+    { id: "dr1", name: "Dr. Rajesh Kumar", speciality: "General Physician" },
+    { id: "dr2", name: "Dr. Sunita Sharma", speciality: "Pediatrician" },
+    { id: "dr3", name: "Dr. Vikram Singh", speciality: "Cardiologist" },
+    { id: "dr4", name: "Dr. Priya Patel", speciality: "Gynecologist" },
+    { id: "dr5", name: "Dr. Amit Verma", speciality: "Dermatologist" }
+  ];
+
+  const handleBookAppointment = () => {
+    if (!selectedDoctor) {
+      toast({
+        title: "Selection Required",
+        description: "Please select a doctor to book an appointment",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // In a real app, this would make an API call to book the appointment
+    const doctor = doctors.find(d => d.id === selectedDoctor);
+    
+    toast({
+      title: "Appointment Scheduled",
+      description: `Your appointment with ${doctor?.name} has been booked. You will receive an SMS confirmation.`,
+    });
+    
+    setShowBookingConfirmation(true);
+    setSelectedDoctor("");
+    setSymptomDesc("");
+  };
 
   if (loading) {
     return (
@@ -162,6 +201,11 @@ const Dashboard = () => {
                 </div>
               </CardContent>
             </Card>
+            
+            {/* AI Assistant */}
+            <div className="mt-6">
+              <AIAssistant />
+            </div>
           </motion.div>
           
           {/* Main Content */}
@@ -472,14 +516,64 @@ const Dashboard = () => {
                               transition={{ type: "spring", stiffness: 400, damping: 10 }}
                             >
                               <div className="font-medium">Video Consultation</div>
-                              <div className="text-sm text-muted-foreground mt-1">
+                              <div className="text-sm text-muted-foreground mt-1 mb-3">
                                 Schedule a video call with a qualified doctor.
                               </div>
-                              <Button className="mt-3 w-full" size="sm">
-                                <VideoIcon className="mr-2 h-4 w-4" />
-                                Book Appointment
-                              </Button>
+                              
+                              {showBookingConfirmation ? (
+                                <motion.div 
+                                  className="bg-green-50 p-3 rounded-lg mb-3"
+                                  initial={{ opacity: 0, y: 10 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ duration: 0.5 }}
+                                >
+                                  <div className="text-green-700 font-medium text-sm">Appointment Confirmed!</div>
+                                  <div className="text-xs text-green-600 mt-1">
+                                    You will receive an SMS with joining details.
+                                  </div>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="mt-2 w-full"
+                                    onClick={() => setShowBookingConfirmation(false)}
+                                  >
+                                    Book Another
+                                  </Button>
+                                </motion.div>
+                              ) : (
+                                <>
+                                  <Select value={selectedDoctor} onValueChange={setSelectedDoctor}>
+                                    <SelectTrigger className="w-full mb-2">
+                                      <SelectValue placeholder="Select Doctor" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {doctors.map((doctor) => (
+                                        <SelectItem key={doctor.id} value={doctor.id}>
+                                          {doctor.name} - {doctor.speciality}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  
+                                  <Textarea
+                                    placeholder="Describe your symptoms..."
+                                    className="mb-2 resize-none"
+                                    value={symptomDesc}
+                                    onChange={(e) => setSymptomDesc(e.target.value)}
+                                  />
+                                  
+                                  <Button 
+                                    className="w-full" 
+                                    size="sm"
+                                    onClick={handleBookAppointment}
+                                  >
+                                    <VideoIcon className="mr-2 h-4 w-4" />
+                                    Book Appointment
+                                  </Button>
+                                </>
+                              )}
                             </motion.div>
+                            
                             <motion.div 
                               className="border rounded-lg p-4"
                               whileHover={{ scale: 1.02 }}
@@ -489,9 +583,57 @@ const Dashboard = () => {
                               <div className="text-sm text-muted-foreground mt-1">
                                 Get preliminary health insights based on your symptoms.
                               </div>
+                              <div className="grid grid-cols-2 gap-2 mt-3">
+                                <motion.div 
+                                  className="border rounded p-2 text-center cursor-pointer hover:bg-primary/10 transition-colors"
+                                  whileHover={{ scale: 1.05 }}
+                                >
+                                  <div className="text-xs font-medium">Fever</div>
+                                </motion.div>
+                                <motion.div 
+                                  className="border rounded p-2 text-center cursor-pointer hover:bg-primary/10 transition-colors"
+                                  whileHover={{ scale: 1.05 }}
+                                >
+                                  <div className="text-xs font-medium">Headache</div>
+                                </motion.div>
+                                <motion.div 
+                                  className="border rounded p-2 text-center cursor-pointer hover:bg-primary/10 transition-colors"
+                                  whileHover={{ scale: 1.05 }}
+                                >
+                                  <div className="text-xs font-medium">Cough</div>
+                                </motion.div>
+                                <motion.div 
+                                  className="border rounded p-2 text-center cursor-pointer hover:bg-primary/10 transition-colors"
+                                  whileHover={{ scale: 1.05 }}
+                                >
+                                  <div className="text-xs font-medium">Body Pain</div>
+                                </motion.div>
+                              </div>
                               <Button className="mt-3 w-full" size="sm" variant="outline">
                                 Start Health Check
                               </Button>
+                            </motion.div>
+                          </div>
+                          
+                          <div className="mt-4 bg-blue-50 p-4 rounded-lg">
+                            <div className="font-medium mb-2">Local Health Camps</div>
+                            <motion.div 
+                              className="grid grid-cols-1 md:grid-cols-2 gap-3"
+                              initial="hidden"
+                              animate="visible"
+                              variants={fadeInUp}
+                              custom={1}
+                            >
+                              <div className="bg-white p-3 rounded border">
+                                <div className="text-sm font-medium">General Health Camp</div>
+                                <div className="text-xs text-muted-foreground">12th June, 2023 • 10:00 AM</div>
+                                <div className="text-xs mt-1">Village Community Center</div>
+                              </div>
+                              <div className="bg-white p-3 rounded border">
+                                <div className="text-sm font-medium">Vaccination Drive</div>
+                                <div className="text-xs text-muted-foreground">20th June, 2023 • 9:00 AM</div>
+                                <div className="text-xs mt-1">Primary Health Center</div>
+                              </div>
                             </motion.div>
                           </div>
                         </CardContent>

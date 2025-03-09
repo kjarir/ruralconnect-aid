@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -137,8 +138,13 @@ const Navbar = ({ transparent = false }: NavbarProps) => {
         description: `Welcome back, ${userData.name}!`,
       });
 
+      // Dispatch a storage event to notify other components about the login
+      window.dispatchEvent(new Event('storage'));
+      
       // Navigate to dashboard
-      navigate('/dashboard');
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 100);
     } catch (error) {
       console.error("Login error:", error);
       // If location was denied, still allow login but without location
@@ -168,7 +174,13 @@ const Navbar = ({ transparent = false }: NavbarProps) => {
         description: `Welcome back, ${userData.name}! (Location access denied)`,
       });
 
-      navigate('/dashboard');
+      // Dispatch a storage event to notify other components about the login
+      window.dispatchEvent(new Event('storage'));
+      
+      // Navigate to dashboard with a small delay
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 100);
     }
   };
 
