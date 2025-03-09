@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Mic, Send, StopCircle, Volume2 } from 'lucide-react';
+import { Mic, Send, StopCircle, Volume2, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 
@@ -36,6 +36,7 @@ const AIAssistant: React.FC = () => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [language, setLanguage] = useState('en-IN');
   const [loading, setLoading] = useState(false);
+  const [micPermissionDenied, setMicPermissionDenied] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const { toast } = useToast();
@@ -47,11 +48,40 @@ const AIAssistant: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
+  // Initialize speech synthesis voices when component mounts
+  useEffect(() => {
+    if ('speechSynthesis' in window) {
+      // Force loading available voices
+      speechSynthesis.getVoices();
+    }
+  }, []);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const startListening = () => {
+  const requestMicrophonePermission = async () => {
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      setMicPermissionDenied(false);
+      return true;
+    } catch (error) {
+      console.error('Error requesting microphone permission:', error);
+      setMicPermissionDenied(true);
+      toast({
+        title: "Microphone Access Denied",
+        description: "Please allow microphone access to use voice features.",
+        variant: "destructive"
+      });
+      return false;
+    }
+  };
+
+  const startListening = async () => {
+    // Request microphone permission first
+    const permissionGranted = await requestMicrophonePermission();
+    if (!permissionGranted) return;
+
     if (!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
       toast({
         title: "Speech Recognition Not Available",
@@ -68,13 +98,23 @@ const AIAssistant: React.FC = () => {
     recognition.continuous = true;
     recognition.interimResults = false;
     
-    recognition.onresult = (event) => {
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
       const transcript = event.results[event.results.length - 1][0].transcript;
       setInput(prev => prev + ' ' + transcript.trim());
     };
     
     recognition.onerror = (event) => {
       console.error('Speech recognition error', event.error);
+      
+      if (event.error === 'not-allowed') {
+        setMicPermissionDenied(true);
+        toast({
+          title: "Microphone Access Denied",
+          description: "Please allow microphone access in your browser settings.",
+          variant: "destructive"
+        });
+      }
+      
       setIsListening(false);
       recognitionRef.current = null;
     };
@@ -85,13 +125,28 @@ const AIAssistant: React.FC = () => {
         recognitionRef.current = null;
       } else if (recognitionRef.current) {
         // If we're still supposed to be listening, restart
-        recognitionRef.current.start();
+        try {
+          recognitionRef.current.start();
+        } catch (e) {
+          console.error("Error restarting speech recognition", e);
+          setIsListening(false);
+        }
       }
     };
     
     recognitionRef.current = recognition;
-    recognition.start();
-    setIsListening(true);
+    
+    try {
+      recognition.start();
+      setIsListening(true);
+    } catch (e) {
+      console.error("Error starting speech recognition", e);
+      toast({
+        title: "Speech Recognition Error",
+        description: "There was an error starting speech recognition.",
+        variant: "destructive"
+      });
+    }
   };
 
   const stopListening = () => {
@@ -145,17 +200,16 @@ const AIAssistant: React.FC = () => {
   const sendMessage = async () => {
     if (!input.trim()) return;
     
-    const userMessage = { role: 'user', content: input.trim() };
+    const userMessage: Message = { role: 'user', content: input.trim() };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setLoading(true);
     
     try {
-      // Simple AI response simulation (in a real app, this would call OpenAI or another AI service)
+      // Simulate API call with our key
       const prompt = `User is asking about rural development and assistance: "${input.trim()}". Provide a helpful response about agriculture, government schemes, healthcare, or marketplace information for rural users.`;
       
       // In a real implementation, you would use the proper OpenAI API with the key
-      // This is a simulated response for the demo
       setTimeout(() => {
         const ruralTopics = [
           "For agricultural guidance, I recommend checking the Farm Assist section where you can monitor crop health and get AI-driven advisory.",
@@ -165,7 +219,7 @@ const AIAssistant: React.FC = () => {
           "The weather conditions today suggest that it's ideal for rice transplanting. Monitor soil moisture as conditions may lead to rapid soil drying.",
         ];
         
-        const aiResponse = { 
+        const aiResponse: Message = { 
           role: 'assistant', 
           content: ruralTopics[Math.floor(Math.random() * ruralTopics.length)]
         };
@@ -191,7 +245,20 @@ const AIAssistant: React.FC = () => {
   return (
     <Card className="border-none shadow-md overflow-hidden">
       <CardHeader className="bg-gradient-to-r from-primary to-primary/80 text-white">
-        <CardTitle className="text-xl">AI Assistant</CardTitle>
+        <CardTitle className="text-xl flex justify-between items-center">
+          <span>AI Assistant</span>
+          {micPermissionDenied && (
+            <Button 
+              variant="ghost" 
+              size="sm"
+              className="text-white hover:text-white/80"
+              onClick={requestMicrophonePermission}
+            >
+              <RefreshCw className="h-4 w-4 mr-1" />
+              Allow Mic
+            </Button>
+          )}
+        </CardTitle>
       </CardHeader>
       <CardContent className="p-0">
         <div className="h-[300px] overflow-y-auto p-4 bg-gray-50">
@@ -283,7 +350,7 @@ const AIAssistant: React.FC = () => {
               </Button>
             ) : (
               <Button
-                variant="outline"
+                variant={micPermissionDenied ? "destructive" : "outline"}
                 size="icon"
                 onClick={startListening}
                 className="rounded-full"

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +11,7 @@ import { MapPin, Cloud, CloudRain, CloudSun, Sun, Droplets, Wind, Thermometer, A
 import Navbar from '@/components/Navbar';
 import CalendarEvent from '@/components/CalendarEvent';
 import AIAssistant from '@/components/AIAssistant';
+import CropHealthAnalyzer from '@/components/CropHealthAnalyzer';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
@@ -400,50 +400,61 @@ const Dashboard = () => {
                         </Card>
                       </motion.div>
                       
+                      {/* Crop Health Analyzer */}
                       <motion.div
                         initial="hidden"
                         animate="visible"
                         custom={1}
                         variants={fadeInUp}
                       >
-                        <Card>
-                          <CardHeader className="pb-2">
-                            <CardTitle className="text-lg flex items-center gap-2">
-                              <FileText className="h-5 w-5 text-blue-600" />
-                              AI Advisory
-                            </CardTitle>
-                            <CardDescription>Personalized recommendations</CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="space-y-3">
-                              <motion.div 
-                                className="bg-blue-50 p-3 rounded-lg"
-                                whileHover={{ scale: 1.01 }}
-                                transition={{ type: "spring", stiffness: 400, damping: 10 }}
-                              >
-                                <div className="font-medium text-sm">Irrigation Recommendation</div>
-                                <div className="text-sm text-muted-foreground mt-1">
-                                  Based on soil moisture data and weather forecast, your rice field needs irrigation in the next 48 hours.
-                                </div>
-                              </motion.div>
-                              <motion.div 
-                                className="bg-green-50 p-3 rounded-lg"
-                                whileHover={{ scale: 1.01 }}
-                                transition={{ type: "spring", stiffness: 400, damping: 10 }}
-                              >
-                                <div className="font-medium text-sm">Pest Alert: Low Risk</div>
-                                <div className="text-sm text-muted-foreground mt-1">
-                                  Current conditions show low risk for pest infestations. Continue routine monitoring.
-                                </div>
-                              </motion.div>
-                            </div>
-                          </CardContent>
-                          <CardFooter className="pt-0">
-                            <Button variant="outline" size="sm">Ask AI Assistant</Button>
-                          </CardFooter>
-                        </Card>
+                        <CropHealthAnalyzer />
                       </motion.div>
                     </div>
+
+                    {/* AI Advisory */}
+                    <motion.div
+                      initial="hidden"
+                      animate="visible"
+                      custom={2}
+                      variants={fadeInUp}
+                    >
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-lg flex items-center gap-2">
+                            <FileText className="h-5 w-5 text-blue-600" />
+                            AI Advisory
+                          </CardTitle>
+                          <CardDescription>Personalized recommendations</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3">
+                            <motion.div 
+                              className="bg-blue-50 p-3 rounded-lg"
+                              whileHover={{ scale: 1.01 }}
+                              transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                            >
+                              <div className="font-medium text-sm">Irrigation Recommendation</div>
+                              <div className="text-sm text-muted-foreground mt-1">
+                                Based on soil moisture data and weather forecast, your rice field needs irrigation in the next 48 hours.
+                              </div>
+                            </motion.div>
+                            <motion.div 
+                              className="bg-green-50 p-3 rounded-lg"
+                              whileHover={{ scale: 1.01 }}
+                              transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                            >
+                              <div className="font-medium text-sm">Pest Alert: Low Risk</div>
+                              <div className="text-sm text-muted-foreground mt-1">
+                                Current conditions show low risk for pest infestations. Continue routine monitoring.
+                              </div>
+                            </motion.div>
+                          </div>
+                        </CardContent>
+                        <CardFooter className="pt-0">
+                          <Button variant="outline" size="sm">Ask AI Assistant</Button>
+                        </CardFooter>
+                      </Card>
+                    </motion.div>
                   </TabsContent>
                   
                   {/* Finance Tab */}
