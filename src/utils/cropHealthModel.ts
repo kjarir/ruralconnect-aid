@@ -24,8 +24,8 @@ const cropDiseases: CropDisease[] = [
   { name: "Leaf Spot", remedy: "Use neem oil spray. Remove and destroy affected leaves." }
 ];
 
-// Simple feature extraction model for crop analysis
-class SimpleCropAnalyzer {
+// Feature extraction model for crop analysis
+class CropAnalyzer {
   async analyzeImage(imageElement: HTMLImageElement): Promise<CropHealthPrediction> {
     return tf.tidy(() => {
       // Convert image to tensor
@@ -34,28 +34,29 @@ class SimpleCropAnalyzer {
         .toFloat()
         .div(255.0);
       
-      // Extract basic image features (color statistics)
+      // Extract image features (color statistics)
       const rgbChannels = tf.split(tensor, 3, 2); // Split into R,G,B channels
       
       // Calculate mean of each channel
       const redMean = rgbChannels[0].mean().dataSync()[0];
       const greenMean = rgbChannels[1].mean().dataSync()[0];
-      const blueMean = rgbChannels[1].mean().dataSync()[0];
+      const blueMean = rgbChannels[2].mean().dataSync()[0]; // Fixed: was using channel 1 instead of 2
       
       // Calculate standard deviation of each channel
       const redStd = tf.moments(rgbChannels[0]).variance.sqrt().dataSync()[0];
       const greenStd = tf.moments(rgbChannels[1]).variance.sqrt().dataSync()[0];
       const blueStd = tf.moments(rgbChannels[2]).variance.sqrt().dataSync()[0];
       
-      // Determine crop health based on color features
-      // High green with good variance often indicates healthy plants
-      // Low green or high variability can indicate problems
+      console.log("Color features:", {
+        redMean, greenMean, blueMean,
+        redStd, greenStd, blueStd
+      });
       
       let condition: "Healthy" | "Needs Attention" | "Disease Detected";
       let confidence: number;
       let diseaseIndex = 0;
       
-      // Simple rule-based classification
+      // Rule-based classification based on color features
       if (greenMean > 0.45 && redStd < 0.2 && greenStd < 0.25) {
         // Healthy crops typically have good green coloration with moderate variance
         condition = "Healthy";
@@ -86,13 +87,16 @@ class SimpleCropAnalyzer {
 }
 
 // Create a singleton instance
-const cropAnalyzer = new SimpleCropAnalyzer();
+const cropAnalyzer = new CropAnalyzer();
 
 export const preprocessImage = async (imageFile: File): Promise<HTMLImageElement> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
-    img.onerror = reject;
+    img.onerror = (e) => {
+      console.error("Error loading image:", e);
+      reject(new Error("Failed to load image"));
+    };
     img.src = URL.createObjectURL(imageFile);
   });
 };
@@ -101,7 +105,12 @@ export const analyzeCropHealth = async (imageFile: File): Promise<CropHealthPred
   try {
     console.log("Analyzing crop health...");
     const imageElement = await preprocessImage(imageFile);
-    return await cropAnalyzer.analyzeImage(imageElement);
+    const prediction = await cropAnalyzer.analyzeImage(imageElement);
+    
+    // Clean up object URL to prevent memory leaks
+    URL.revokeObjectURL(imageElement.src);
+    
+    return prediction;
   } catch (error) {
     console.error("Error in analysis:", error);
     throw new Error("Failed to analyze crop health");
