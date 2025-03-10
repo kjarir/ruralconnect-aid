@@ -1,8 +1,8 @@
-
 "use client";
 
 import * as tf from "@tensorflow/tfjs";
 import "@tensorflow/tfjs-backend-webgl"; // Enable WebGL backend for better performance
+import * as mobilenet from "@tensorflow-models/mobilenet"; // Import MobileNet
 
 export interface CropHealthPrediction {
   condition: "Healthy" | "Needs Attention" | "Disease Detected";
@@ -27,6 +27,31 @@ const cropDiseases: CropDisease[] = [
   { name: "Pest Infestation", remedy: "Use neem oil or appropriate insecticide. Introduce beneficial insects." }
 ];
 
+// Load MobileNet Model for Crop Detection
+let mobileNetModel: mobilenet.MobileNet | null = null;
+const loadMobileNet = async () => {
+  if (!mobileNetModel) {
+    mobileNetModel = await mobilenet.load();
+    console.log("✅ MobileNet model loaded successfully");
+  }
+};
+
+// Function to check if the image contains a crop
+const cropKeywords = [
+  "plant", "leaf", "tree", "flower", "vegetation", "crop", 
+  "corn", "wheat", "hay", "ear", "spike", "capitulum", "grass"
+];
+
+const isCropImage = async (imageElement: HTMLImageElement): Promise<boolean> => {
+  await loadMobileNet();
+  const predictions = await mobileNetModel?.classify(imageElement);
+  console.log("🔍 MobileNet Predictions:", predictions);
+
+  // Check if any prediction matches the updated crop keywords list
+  return predictions?.some((p) => cropKeywords.some((kw) => p.className.toLowerCase().includes(kw))) || false;
+};
+
+
 // Feature extraction model for crop analysis
 class CropAnalyzer {
   async analyzeImage(imageElement: HTMLImageElement): Promise<CropHealthPrediction> {
@@ -49,82 +74,33 @@ class CropAnalyzer {
       const redStd = tf.moments(rgbChannels[0]).variance.sqrt().dataSync()[0];
       const greenStd = tf.moments(rgbChannels[1]).variance.sqrt().dataSync()[0];
       const blueStd = tf.moments(rgbChannels[2]).variance.sqrt().dataSync()[0];
-      
-      // Calculate texture features (approximation using variance in small regions)
-      const textureVariance = tf.pool(
-        tensor, 
-        [5, 5], 
-        'avg', 
-        'valid',
-        1
-      ).mean().dataSync()[0];
-      
-      console.log("Image analysis features:", {
-        redMean, greenMean, blueMean,
-        redStd, greenStd, blueStd,
-        textureVariance
-      });
-      
+
       let condition: "Healthy" | "Needs Attention" | "Disease Detected";
       let confidence: number;
       let diseaseIndex: number;
-      
-      // More sophisticated rule-based classification using multiple features
-      // Generate a unique fingerprint from the image to avoid same results
-      const imageFingerprint = redMean + greenMean * 2 + blueMean * 3 + redStd * 4 + greenStd * 5 + blueStd * 6;
-      
-      // Use the image fingerprint to create more varied analysis
-      if (greenMean > 0.5 && redStd < 0.2 && greenStd < 0.25 && blueMean < 0.4) {
-        // Very healthy crops have strong green signal with low variance
+
+      // Basic classification based on color features
+      if (greenMean > 0.5 && redStd < 0.2) {
         condition = "Healthy";
-        confidence = 0.8 + (greenMean - 0.5) * 0.4;
+        confidence = 0.85;
         diseaseIndex = 0;
-      } else if (greenMean > 0.45 && greenMean <= 0.5 && redStd < 0.25) {
-        // Moderately healthy crops
-        condition = "Healthy";
-        confidence = 0.7 + (greenMean - 0.45) * 0.6;
-        diseaseIndex = 0;
-      } else if (redMean > 0.55 && greenMean < 0.4 && blueStd > 0.2) {
-        // Likely late blight (dark lesions with reddish-brown color)
+      } else if (redMean > 0.55 && greenMean < 0.4) {
         condition = "Disease Detected";
-        confidence = 0.75 + (redMean - 0.55) * 0.5;
+        confidence = 0.75;
         diseaseIndex = 2; // Late Blight
-      } else if (greenMean < 0.35 && redMean > 0.45) {
-        // Early stage disease with yellowing/browning
-        condition = "Disease Detected";
-        confidence = 0.7 + (0.35 - greenMean) * 0.6;
-        diseaseIndex = 1; // Early Blight
-      } else if (redMean > 0.6 && greenMean > 0.5 && blueStd < 0.15) {
-        // Likely powdery mildew (white powdery spots)
-        condition = "Disease Detected";
-        confidence = 0.7 + (redMean - 0.6) * 0.6;
-        diseaseIndex = 3; // Powdery Mildew
-      } else if (greenMean > 0.4 && greenMean < 0.45 && redStd > 0.2) {
-        // Leaf spots (dark spots on otherwise green leaves)
-        condition = "Disease Detected";
-        confidence = 0.65 + redStd * 0.3;
-        diseaseIndex = 4; // Leaf Spot
-      } else if (blueMean > 0.5 && greenMean < 0.5) {
-        // Possible nutrient deficiency (unusual coloration)
-        condition = "Needs Attention";
-        confidence = 0.75 - greenMean * 0.3;
-        diseaseIndex = 5; // Nutrient Deficiency
-      } else if (redStd > 0.25 && greenStd > 0.25 && blueStd > 0.25) {
-        // High variance in all channels could indicate pest damage
-        condition = "Needs Attention";
-        confidence = 0.6 + redStd * 0.2;
-        diseaseIndex = 6; // Pest Infestation
       } else {
-        // Default case - mild issues
         condition = "Needs Attention";
-        confidence = 0.6 + Math.abs(greenMean - 0.4) * 0.6;
-        // Use the image fingerprint to select a varied disease
-        diseaseIndex = Math.floor(imageFingerprint * 10) % 4 + 1;
+        confidence = 0.65;
+        diseaseIndex = Math.floor(Math.random() * 4) + 1;
       }
-      
-      // Clamp confidence between 0.5 and 0.98 for reasonable values
-      confidence = Math.min(0.98, Math.max(0.5, confidence));
-      
+
+      console.log("✅ Crop health analysis:", {
+        condition,
+        confidence,
+        remedy: cropDiseases[diseaseIndex].remedy,
+        diseaseName: cropDiseases[diseaseIndex].name
+      });
+
       return {
         condition,
         confidence,
@@ -138,6 +114,7 @@ class CropAnalyzer {
 // Create a singleton instance
 const cropAnalyzer = new CropAnalyzer();
 
+// Preprocess the image
 export const preprocessImage = async (imageFile: File): Promise<HTMLImageElement> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -150,19 +127,29 @@ export const preprocessImage = async (imageFile: File): Promise<HTMLImageElement
   });
 };
 
+// **Main Function to Analyze Crop Health**
 export const analyzeCropHealth = async (imageFile: File): Promise<CropHealthPrediction> => {
   try {
-    console.log("Analyzing crop health...");
+    console.log("🔍 Analyzing crop health...");
     const imageElement = await preprocessImage(imageFile);
+
+    // First, check if it's a crop image using MobileNet
+    const isCrop = await isCropImage(imageElement);
+    if (!isCrop) {
+      console.warn("❌ No crop detected. Please upload a valid crop image.");
+      throw new Error("No crop detected. Please upload a valid plant image.");
+    }
+
+    // If it's a crop, proceed to disease detection
     const prediction = await cropAnalyzer.analyzeImage(imageElement);
     
     // Clean up object URL to prevent memory leaks
     URL.revokeObjectURL(imageElement.src);
-    
-    console.log("Analysis result:", prediction);
+
+    console.log("✅ Final Analysis:", prediction);
     return prediction;
   } catch (error) {
-    console.error("Error in analysis:", error);
-    throw new Error("Failed to analyze crop health");
+    console.error("🚨 Error in analysis:", error);
+    throw new Error(error.message || "Failed to analyze crop health");
   }
 };

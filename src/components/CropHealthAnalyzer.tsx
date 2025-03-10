@@ -74,7 +74,7 @@ const CropHealthAnalyzer: React.FC = () => {
       console.error("Error analyzing crop health:", error);
       toast({
         title: "Analysis Failed",
-        description: "There was an error analyzing your crop image",
+        description: "Upload valid crop image to get the analysis result",
         variant: "destructive"
       });
     } finally {
