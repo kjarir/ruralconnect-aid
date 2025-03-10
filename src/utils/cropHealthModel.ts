@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as tf from "@tensorflow/tfjs";
@@ -23,45 +24,87 @@ const cropDiseases: CropDisease[] = [
   { name: "Leaf Spot", remedy: "Use neem oil spray. Remove and destroy affected leaves." }
 ];
 
-export const loadModel = async (): Promise<tf.GraphModel> => {
-  try {
-    console.log("Loading EfficientNet model...");
-    const model = await tf.loadGraphModel("https://tfhub.dev/google/efficientnet/lite0/classification/1/default/1", { fromTFHub: true });
-    console.log("Model loaded successfully.");
-    return model;
-  } catch (error) {
-    console.error("Error loading model:", error);
-    throw new Error("Failed to load model");
+export class CropAnalyzer {
+  model: tf.LayersModel | null = null;
+
+  async loadModel() {
+    if (!this.model) {
+      try {
+        console.log("Loading VGG model...");
+        this.model = await tf.loadLayersModel("/model/model.json");
+        console.log("✅ Model loaded successfully!");
+      } catch (error) {
+        console.error("Error loading model:", error);
+        throw new Error("Failed to load crop analysis model");
+      }
+    }
+    return this.model;
   }
+
+  async predict(imageElement: HTMLImageElement) {
+    if (!this.model) {
+      await this.loadModel();
+    }
+
+    // Preprocess the image
+    const tensor = tf.browser.fromPixels(imageElement)
+      .resizeNearestNeighbor([224, 224])
+      .toFloat()
+      .div(255.0)
+      .expandDims();
+
+    // Make prediction
+    const predictions = this.model!.predict(tensor) as tf.Tensor;
+    const values = await predictions.data();
+    
+    // Cleanup to prevent memory leaks
+    tensor.dispose();
+    predictions.dispose();
+    
+    return this.interpretResults(Array.from(values));
+  }
+
+  interpretResults(values: number[]) {
+    const labels = ["Healthy", "Needs Attention", "Disease Detected"];
+    const maxIndex = values.indexOf(Math.max(...values));
+    const condition = labels[maxIndex] as "Healthy" | "Needs Attention" | "Disease Detected";
+    const confidence = values[maxIndex];
+    
+    // Get remedy based on condition
+    const disease = cropDiseases.find(d => 
+      (condition === "Healthy" && d.name === "Healthy") ||
+      (condition === "Disease Detected" && d.name !== "Healthy") ||
+      (condition === "Needs Attention" && d.name !== "Healthy")
+    ) || cropDiseases[0];
+    
+    return {
+      condition,
+      confidence,
+      remedy: disease.remedy
+    };
+  }
+}
+
+// Create a singleton instance
+const cropAnalyzer = new CropAnalyzer();
+
+export const loadModel = async (): Promise<tf.LayersModel> => {
+  return cropAnalyzer.loadModel();
 };
 
-
-
-export const preprocessImage = async (imageFile: File): Promise<tf.Tensor> => {
-  const img = await tf.browser.fromPixels(await createImageBitmap(imageFile));
-  const resized = tf.image.resizeBilinear(img, [224, 224]);
-  const normalized = resized.div(255.0).expandDims(0);
-  return normalized;
+export const preprocessImage = async (imageFile: File): Promise<HTMLImageElement> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = URL.createObjectURL(imageFile);
+  });
 };
 
 export const analyzeCropHealth = async (imageFile: File): Promise<CropHealthPrediction> => {
   try {
-    const model = await loadModel();
-    const tensor = await preprocessImage(imageFile);
-    
-    // Make a prediction
-    const predictions = model.predict(tensor) as tf.Tensor;
-    const predictionArray = await predictions.data();
-    const maxIndex = predictionArray.indexOf(Math.max(...predictionArray));
-
-    // Get predicted disease and remedy
-    const disease = cropDiseases[maxIndex] || { name: "Unknown", remedy: "Consult an expert." };
-
-    return {
-      condition: disease.name === "Healthy" ? "Healthy" : "Disease Detected",
-      confidence: Math.max(...predictionArray),
-      remedy: disease.remedy
-    };
+    const imageElement = await preprocessImage(imageFile);
+    return cropAnalyzer.predict(imageElement);
   } catch (error) {
     console.error("Error in analysis:", error);
     throw new Error("Failed to analyze crop health");
