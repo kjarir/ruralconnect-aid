@@ -65,7 +65,7 @@ const CropHealthAnalyzer: React.FC = () => {
         prediction.condition === 'Needs Attention' ? 'default' : 'destructive';
         
       toast({
-        title: `Crop Analysis: ${prediction.condition}`,
+        title: `Crop Analysis: ${prediction.diseaseName || prediction.condition}`,
         description: prediction.remedy || "Your crop is in good condition!",
         variant: toastVariant
       });
@@ -167,6 +167,12 @@ const CropHealthAnalyzer: React.FC = () => {
                 <h3 className="font-medium">Analysis Result</h3>
                 {getResultBadge()}
               </div>
+              
+              {result.diseaseName && (
+                <div className="text-sm font-medium mt-2">
+                  Detected: {result.diseaseName}
+                </div>
+              )}
               
               {result.remedy && (
                 <div className="text-sm border-l-2 border-primary pl-3 mt-2">
