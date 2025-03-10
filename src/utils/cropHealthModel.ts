@@ -30,7 +30,8 @@ export class CropAnalyzer {
   async loadModel() {
     if (!this.model) {
       try {
-        console.log("Loading VGG model...");
+        console.log("Loading model...");
+        // Use the existing model.json from the public folder
         this.model = await tf.loadLayersModel("/model/model.json");
         console.log("✅ Model loaded successfully!");
       } catch (error) {
@@ -47,21 +48,34 @@ export class CropAnalyzer {
     }
 
     // Preprocess the image
-    const tensor = tf.browser.fromPixels(imageElement)
-      .resizeNearestNeighbor([224, 224])
-      .toFloat()
-      .div(255.0)
-      .expandDims();
+    const tensor = tf.tidy(() => {
+      // Convert image to tensor and normalize
+      return tf.browser.fromPixels(imageElement)
+        .resizeNearestNeighbor([224, 224]) // Resize to model input size
+        .toFloat()
+        .div(255.0) // Normalize to [0,1]
+        .expandDims(); // Add batch dimension
+    });
 
-    // Make prediction
-    const predictions = this.model!.predict(tensor) as tf.Tensor;
-    const values = await predictions.data();
-    
-    // Cleanup to prevent memory leaks
-    tensor.dispose();
-    predictions.dispose();
-    
-    return this.interpretResults(Array.from(values));
+    try {
+      // Make prediction
+      const predictions = this.model!.predict(tensor) as tf.Tensor;
+      const values = await predictions.data();
+      
+      // Get the results and clean up tensors
+      const result = this.interpretResults(Array.from(values));
+      
+      // Cleanup to prevent memory leaks
+      tensor.dispose();
+      predictions.dispose();
+      
+      return result;
+    } catch (error) {
+      // Make sure to dispose tensor on error
+      tensor.dispose();
+      console.error("Prediction error:", error);
+      throw new Error("Failed to analyze image");
+    }
   }
 
   interpretResults(values: number[]) {
